@@ -36,7 +36,7 @@ namespace Discount.API.Controllers
         {
             return Ok(await _reposotory.UpdateDiscount(coupon));
         }
-        [HttpDelete]
+        [HttpDelete("{productName}", Name = "DeleteDiscount")]
         [ProducesResponseType(typeof(Coupon), (int)HttpStatusCode.OK)]
         public async Task<ActionResult<bool>> DeleteDiscount(string productName)
         {
