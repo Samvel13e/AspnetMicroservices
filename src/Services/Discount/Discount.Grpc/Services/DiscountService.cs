@@ -1,4 +1,6 @@
-﻿using Discount.Grpc.Protos;
+﻿using AutoMapper;
+using Discount.Grpc.Entities;
+using Discount.Grpc.Protos;
 using Discount.Grpc.Repositories;
 using Grpc.Core;
 
@@ -8,19 +10,46 @@ namespace Discount.Grpc.Services
     {
         private readonly IDiscountReposotory _repository;
         private readonly ILogger _logger;
-
-        public DiscountService(IDiscountReposotory repository, ILogger logger)
+        private readonly IMapper _mapper;
+        public DiscountService(IDiscountReposotory repository, ILogger logger, IMapper mapper)
         {
             _repository = repository ?? throw new ArgumentNullException(nameof(repository));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper)); ;
         }
 
         public override async Task<CouponModel> GetDiscount(GetDiscountRequest request, ServerCallContext context)
         {
             var coupon = await _repository.GetDiscount(request.ProductName);
             if (coupon is null)
-             throw new ArgumentNullException(nameof(coupon));   
-            //return await base.GetDiscount(request, context);
+                throw new RpcException(new Status(StatusCode.NotFound,$"Discount with ProductName={request.ProductName} is not found."));
+            _logger.LogInformation("Discount is retrieved for ProductName : {productName}, Amount : {amount}",coupon.ProductName,coupon.Amount);
+            var couponModel = _mapper.Map<CouponModel>(coupon);
+            return couponModel; 
+        }
+        public  override async Task<CouponModel> CreateDiscount(CreateDiscountRequest request, ServerCallContext context)
+        {
+            var coupon = _mapper.Map<Coupon>(request.Coupon);
+            await _repository.CreateDiscount(coupon);
+            _logger.LogInformation("Discount is successfully created. ProductName : {ProductName}",coupon.ProductName);
+            return _mapper.Map<CouponModel>(coupon);
+        }
+        public override async Task<DeleteDiscountResponse> DeleteDiscount(DeleteDiscountRequest request, ServerCallContext context)
+        {
+            var deleted =   await _repository.DeleteDiscount(request.ProductName);
+            var response = new DeleteDiscountResponse 
+            {
+                Success = deleted,
+            };
+            _logger.LogInformation("Discount is successfully created. ProductName : {ProductName}", request.ProductName);
+            return response;
+        }
+        public override async Task<CouponModel> UpdateDiscount(UpdateDiscountRequest request, ServerCallContext context)
+        {
+            var coupon = _mapper.Map<Coupon>(request.Coupon);
+            await _repository.UpdateDiscount(coupon);
+            _logger.LogInformation("Discount is successfully deleted. ProductName : {ProductName}", coupon.ProductName);
+            return _mapper.Map<CouponModel>(coupon);
         }
     }
 }
